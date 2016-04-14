@@ -1,0 +1,45 @@
+#!/bin/bash
+
+KITHOME="/opt/devkitadv"
+
+# ensure that at least one input file was passed
+if [ $# -lt 1 ] 
+then
+  echo "Usage: $(basename $0) input.c"
+  exit
+fi
+
+output="program"
+
+# for each argument
+for f in $*
+do
+    # get base name and extension
+    base=$(basename "$f")
+    extension="${base##*.}"
+    base="${base%.*}"
+
+    case $extension in
+        # if it's a C file, compile it
+        c)
+            $KITHOME/bin/arm-agb-elf-gcc -c -O3 -std=c99 "$base.$extension"
+        ;;
+
+        # if it's a S file, assemble it
+        s)
+            $KITHOME/bin/arm-agb-elf-gcc -c "$base.$extension"
+        ;;
+
+        # if it's a name for the file
+        *)
+            output="$extension"
+    esac 
+done
+
+# now link all the .o files we have
+$KITHOME/bin/arm-agb-elf-gcc -O3 -nostartfiles $KITHOME/arm-agb-elf/lib/crt0.o -o $output.elf *.o -lm
+$KITHOME/bin/arm-agb-elf-objcopy -O binary $output.elf $output.gba
+
+# get rid of temp files
+rm -f *.o *.elf
+
