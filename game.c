@@ -1,3 +1,5 @@
+//TODO Change the HUD to be transparent like in ALTTP
+
 /*
  * game.c
  * program which demonstrates sprites colliding with tiles
@@ -349,9 +351,6 @@ struct Sid {
     /* the x and y postion, in 1/256 pixels */
     int x, y;
     
-    /* the change in position in tiles */
-    int dx, dy;
-    
     /* direction */
     char dir;
     #define DIR_N 0x00
@@ -379,8 +378,6 @@ struct Sid {
 void sid_init(struct Sid* sid) {
     sid->x = 120;
     sid->y = 80;
-    //sid->dx = 0;
-    //sid->dy = 0;
     sid->dir = 0;
     sid->border = 64;
     sid->frame = 0;
@@ -443,7 +440,7 @@ int sid_up(struct Sid* sid) {
     }
     // if sid has reached the border, scroll the screen
     if ( (sid->y < sid->border + 32) &&
-         (screen_y - 1) > 32 ) { 
+         (screen_y - 1) > 0 ) { 
         //bg0_x_scroll = 
         screen_y -= 1;
         return 1;
@@ -474,8 +471,6 @@ int sid_down(struct Sid* sid) {
 /* stop the sid from walking left/right */
 void sid_stop(struct Sid* sid) {
     sid->move = 0;
-    //sid->dx = 0;
-    //sid->dy = 0;
     sid->frame = 0;
     sid->counter = 7;
     sprite_set_offset(sid->sprite, sid->frame);
@@ -517,30 +512,16 @@ unsigned short tile_lookup(int x, int y, int xscroll, int yscroll,
 
 /* update the sid */
 void sid_update(struct Sid* sid, int xscroll, int yscroll) {
-    /* check which tile the sid's feet are over */
-    unsigned short tile;
+    /* check which tile the sid's head is bumping into */
+    unsigned short tile_N = tile_lookup( (sid->x + 8), (sid->y + 1), xscroll,
+            yscroll, map, map_width, map_height);
+    unsigned short tile_S = tile_lookup( (sid->x + 8), (sid->y + 16), xscroll,
+            yscroll, map, map_width, map_height);
+    unsigned short tile_E = tile_lookup( (sid->x + 15), (sid->y + 8), xscroll,
+            yscroll, map, map_width, map_height);
+    unsigned short tile_W = tile_lookup( (sid->x + 1), (sid->y + 8), xscroll,
+            yscroll, map, map_width, map_height);
     
-    /*
-    switch(sid->dir) {
-        case DIR_N:
-            tile=tile_lookup( (sid->x), (sid->y) - 8, xscroll,
-            0, map, map_width, map_height);
-        break;
-        case DIR_S:
-            tile=tile_lookup( (sid->x), (sid->y) + 8 + 16, xscroll,
-            0, map, map_width, map_height);
-        break;
-        case DIR_E:
-            tile=tile_lookup( (sid->x) + 8 + 16, (sid->y), xscroll,
-            0, map, map_width, map_height);
-        break;
-        case DIR_W:
-            tile=tile_lookup( (sid->x) - 8, (sid->y), xscroll,
-            0, map, map_width, map_height);
-        break;
-    }
-    */
-
     /* update animation if moving */
     if (sid->move) {
         sid->counter++;
@@ -554,21 +535,32 @@ void sid_update(struct Sid* sid, int xscroll, int yscroll) {
         }
     }
     
-    /* set on screen position */
-    sprite_position(sid->sprite, sid->x, sid->y);
-
-    /* check if sid is stepping onto a walkable tile*/
-    /*
-    if (tile==0x17 || tile==0x1b ) {
-        sprite_position(sid->sprite, sid->x + (sid->dx << 3), sid->y + (sid->dy << 3)); 
+    // Check if sid is walking into a wall from the North
+    if(tile_S == 0x0002 || tile_S == 0x0003 || tile_S == 0x0004) {
+        //TODO Use some bitwise voodo to keep sid from walking into the wall
+        sid->y -= 8;
     }
-    */
+    // Check if sid is walking into a wall from the South
+    if(tile_N == 0x0022 || tile_N == 0x0023 || tile_N == 0x0024) {
+        sid->y += 8;
+    }
+    // Check if sid is walking into a wall from the East
+    if(tile_W == 0x0004 || tile_W == 0x0014 || tile_W == 0x0024) {
+        sid->x += 8;
+    }
+    // Check if sid is walking into a wall from the West
+    if(tile_E == 0x0002 || tile_E == 0x0012 || tile_E == 0x0022) {
+        sid->x -= 8;
+    }
+    
+    // Set on screen position
+    sprite_position(sid->sprite, sid->x, sid->y);
 }
 
 /* the main function */
 int main( ) {
     /* we set the mode to mode 0 with bg0 and bg1 on */
-    *display_control = MODE0 | BG0_ENABLE | BG1_ENABLE | SPRITE_ENABLE | SPRITE_MAP_1D;
+    *display_control = MODE0 | BG0_ENABLE | SPRITE_ENABLE | SPRITE_MAP_1D;
 
     /* setup the new_bg 0 */
     setup_new_bg();
