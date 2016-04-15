@@ -7,15 +7,15 @@
 #define SCREEN_HEIGHT 160
 
 /* include the background image we are using */
-#include "new_bg.h"
+#include "include/new_bg.h"
 
 /* include the sprite image we are using */
-#include "sid.h"
-#include "Sid_Front.h"
+#include "include/sid.h"
+//#include "include/Sid_Front.h"
 
 /* include the tile map we are using */
-#include "map.h"
-#include "hud.h"
+#include "include/map.h"
+#include "include/hud.h"
 
 /* the tile mode flags needed for display control register */
 #define MODE0 0x00
