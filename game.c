@@ -388,6 +388,8 @@ void sid_init(struct Sid* sid) {
     sid->sprite = sprite_init(sid->x, sid->y, SIZE_16_16, 0, 0, sid->frame, 0);
 }
 
+//TODO Make Sid's sprite change to reflect the direction he faces.
+
 /* move the sid left or right returns if it is at edge of the screen */
 int sid_left(struct Sid* sid) {
     /* face left */
@@ -559,19 +561,20 @@ void sid_update(struct Sid* sid, int xscroll, int yscroll) {
 
 /* the main function */
 int main( ) {
-    /* we set the mode to mode 0 with bg0 and bg1 on */
+    //TODO Re-enable BG1_ENABLE
+    // we set the mode to mode 0 with bg0 and bg1 on
     *display_control = MODE0 | BG0_ENABLE | SPRITE_ENABLE | SPRITE_MAP_1D;
 
-    /* setup the new_bg 0 */
+    // setup backgrounds
     setup_new_bg();
 
-    /* setup the sprite image data */
+    // setup the sprite image data
     setup_sprite_image();
 
-    /* clear all the sprites on screen now */
+    // clear all the sprites on screen now
     sprite_clear();
 
-    /* create the sid */
+    // create the sid
     struct Sid sid;
     sid_init(&sid);
 
@@ -604,7 +607,7 @@ int main( ) {
         } else if (button_pressed(BUTTON_A)) {
         
         } else if (button_pressed(BUTTON_B)) {
-        
+            //TODO Make Sid able to fight. B -> Punch
         } else {
             sid_stop(&sid);
         }
