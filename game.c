@@ -1,3 +1,5 @@
+//TODO Change the HUD to be transparent like in ALTTP
+
 /*
  * game.c
  * program which demonstrates sprites colliding with tiles
@@ -5,29 +7,37 @@
 
 #define SCREEN_WIDTH 240
 #define SCREEN_HEIGHT 160
+unsigned char screen_x = 0;
+unsigned char screen_y = 0;
 
 /* include the background image we are using */
-#include "background.h"
+#include "include/new_bg.h"
 
 /* include the sprite image we are using */
-#include "sid.h"
-#include "Sid_Front.h"
+#include "include/sid.h"
+//#include "Sid_Front.h"
 
 /* include the tile map we are using */
-#include "map.h"
+#include "include/map.h"
+#include "include/hud.h"
 
 /* the tile mode flags needed for display control register */
 #define MODE0 0x00
 #define BG0_ENABLE 0x100
+#define BG1_ENABLE 0x200
+#define BG2_ENABLE 0x400
+#define BG3_ENABLE 0x800
 
 /* flags to set sprite handling in display control register */
 #define SPRITE_MAP_2D 0x0
 #define SPRITE_MAP_1D 0x40
 #define SPRITE_ENABLE 0x1000
 
-
 /* the control registers for the four tile layers */
 volatile unsigned short* bg0_control = (volatile unsigned short*) 0x4000008;
+volatile unsigned short* bg1_control = (volatile unsigned short*) 0x400000a;
+//volatile unsigned short* bg2_control = (volatile unsigned short*) 0x400000c;
+//volatile unsigned short* bg3_control = (volatile unsigned short*) 0x400000e;
 
 /* palette is always 256 colors */
 #define PALETTE_SIZE 256
@@ -44,7 +54,7 @@ volatile unsigned short* sprite_attribute_memory = (volatile unsigned short*) 0x
 /* the memory location which stores sprite image data */
 volatile unsigned short* sprite_image_memory = (volatile unsigned short*) 0x6010000;
 
-/* the address of the color palettes used for backgrounds and sprites */
+/* the address of the color palettes used for new_bgs and sprites */
 volatile unsigned short* bg_palette = (volatile unsigned short*) 0x5000000;
 volatile unsigned short* sprite_palette = (volatile unsigned short*) 0x5000200;
 
@@ -53,7 +63,7 @@ volatile unsigned short* sprite_palette = (volatile unsigned short*) 0x5000200;
  */
 volatile unsigned short* buttons = (volatile unsigned short*) 0x04000130;
 
-/* scrolling registers for backgrounds */
+/* scrolling registers for new_bgs */
 volatile short* bg0_x_scroll = (unsigned short*) 0x4000010;
 volatile short* bg0_y_scroll = (unsigned short*) 0x4000012;
 
@@ -129,27 +139,39 @@ void memcpy16_dma(unsigned short* dest, unsigned short* source, int amount) {
     *dma_count = amount | DMA_16 | DMA_ENABLE;
 }
 
-/* function to setup background 0 for this program */
-void setup_background() {
+/* function to setup new_bg 0 for this program */
+void setup_new_bg() {
 
     /* load the palette from the image into palette memory*/
-    memcpy16_dma((unsigned short*) bg_palette, (unsigned short*) background_palette, PALETTE_SIZE);
+    memcpy16_dma((unsigned short*) bg_palette, (unsigned short*) new_bg_palette, PALETTE_SIZE);
 
     /* load the image into char block 0 */
-    memcpy16_dma((unsigned short*) char_block(0), (unsigned short*) background_data,
-            (background_width * background_height) / 2);
+    memcpy16_dma((unsigned short*) char_block(0), (unsigned short*) new_bg_data,
+            (new_bg_width * new_bg_height) / 2);
 
+    //Main Background
     /* set all control the bits in this register */
-    *bg0_control = 0 |    /* priority, 0 is highest, 3 is lowest */
+    *bg0_control = 3 |    /* priority, 0 is highest, 3 is lowest */
+        (0 << 2)  |       /* the char block the image data is stored in */
+        (0 << 6)  |       /* the mosaic flag */
+        (1 << 7)  |       /* color mode, 0 is 16 colors, 1 is 256 colors */
+        (24 << 8) |       /* the screen block the tile data is stored in */
+        (0 << 13) |       /* wrapping flag */
+        (0 << 14);        /* bg size, 0 is 256x256 */
+    //Heads-Up Display
+    /* set all control the bits in this register */
+    *bg1_control = 2 |    /* priority, 0 is highest, 3 is lowest */
         (0 << 2)  |       /* the char block the image data is stored in */
         (0 << 6)  |       /* the mosaic flag */
         (1 << 7)  |       /* color mode, 0 is 16 colors, 1 is 256 colors */
         (16 << 8) |       /* the screen block the tile data is stored in */
-        (1 << 13) |       /* wrapping flag */
+        (0 << 13) |       /* wrapping flag */
         (0 << 14);        /* bg size, 0 is 256x256 */
 
+    /* load the tile data into screen block 24 */
+    memcpy16_dma((unsigned short*) screen_block(24), (unsigned short*) map, map_width * map_height);
     /* load the tile data into screen block 16 */
-    memcpy16_dma((unsigned short*) screen_block(16), (unsigned short*) map, map_width * map_height);
+    memcpy16_dma((unsigned short*) screen_block(16), (unsigned short*) hud, hud_width * hud_height);
 }
 
 /* just kill time */
@@ -227,7 +249,7 @@ struct Sprite* sprite_init(int x, int y, enum SpriteSize size,
                             (v << 13) |         /* vertical flip flag */
                             (size_bits << 14);  /* size */
 
-    /* setup the second attribute */
+    /* setup the third attribute */
     sprites[index].attribute2 = tile_index |   // tile index */
                             (priority << 10) | // priority */
                             (0 << 12);         // palette bank (only 16 color)*/
@@ -328,13 +350,14 @@ struct Sid {
 
     /* the x and y postion, in 1/256 pixels */
     int x, y;
-
-    /* the sid's y velocity in 1/256 pixels/second */
-    int yvel;
-
-    /* the sid's y acceleration in 1/256 pixels/second^2 */
-    int gravity; 
-
+    
+    /* direction */
+    char dir;
+    #define DIR_N 0x00
+    #define DIR_S 0x01
+    #define DIR_E 0x10
+    #define DIR_W 0x11
+    
     /* which frame of the animation he is on */
     int frame;
 
@@ -349,87 +372,102 @@ struct Sid {
 
     /* the number of pixels away from the edge of the screen the sid stays */
     int border;
-
-    /* if the sid is currently falling */
-    int falling;
 };
 
 /* initialize sid */
 void sid_init(struct Sid* sid) {
-    sid->x = 120 << 8;
-    sid->y = 70 << 8;
-    sid->yvel = 0;
-    sid->gravity = 0;
-    sid->border = 32;
+    sid->x = 120;
+    sid->y = 80;
+    sid->dir = 0;
+    sid->border = 64;
     sid->frame = 0;
     sid->move = 0;
     sid->counter = 0;
-    sid->falling = 0;
+    //sid->falling = 0;
     sid->animation_delay = 8;
-    sid->sprite = sprite_init(sid->x >> 8, sid->y >> 8, SIZE_16_16, 0, 0, sid->frame, 0);
+    sid->sprite = sprite_init(sid->x, sid->y, SIZE_16_16, 0, 0, sid->frame, 0);
 }
+
+//TODO Make Sid's sprite change to reflect the direction he faces.
 
 /* move the sid left or right returns if it is at edge of the screen */
 int sid_left(struct Sid* sid) {
     /* face left */
     sprite_set_horizontal_flip(sid->sprite, 1);
     sid->move = 1;
+    sid->dir = DIR_W;
 
-    /* if we are at the left end, just scroll the screen */
-    if ((sid->x >> 8) < sid->border) {
-        return 1;
-    } else {
-        /* else move left */
-        sid->x -= 256;
-        return 0;
+    // if there is room to walk, walk
+    if ( (sid->x - 1) > 0 && (sid->x - 1) < SCREEN_WIDTH ) {
+        sid->x -= 1;
     }
+    // if sid has reached the border, scroll the screen
+    if ( (sid->x < sid->border) &&
+         (screen_x - 1) > 0 ) { 
+        //bg0_x_scroll = 
+        screen_x -= 1;
+        return 1;
+    }
+    return 0;
 }
 int sid_right(struct Sid* sid) {
     /* face right */
     sprite_set_horizontal_flip(sid->sprite, 0);
     sid->move = 1;
-
-    /* if we are at the right end, just scroll the screen */
-    if ((sid->x >> 8) > (SCREEN_WIDTH - 16 - sid->border)) {
-        return 1;
-    } else {
-        /* else move right */
-        sid->x += 256;
-        return 0;
+    sid->dir = DIR_E;
+    
+    // if there is room to walk, walk
+    if ( (sid->x + 16 + 1) > 0 && (sid->x + 16 + 1) < SCREEN_WIDTH ) {
+        sid->x += 1;
     }
+    // if sid has reached the border, scroll the screen
+    if ( (sid->x > (SCREEN_WIDTH - sid->border) ) &&
+         (screen_x + SCREEN_WIDTH + 1) < (32 << 3) ) {
+        //bg0_x_scroll = 
+        screen_x += 1;
+        return 1;
+    }
+    return 0;
 }
-
 /* move the sid up or down returns if it is at edge of the screen */
 int sid_up(struct Sid* sid) {
-    /* face up */
+    /* face North */
     sprite_set_horizontal_flip(sid->sprite, 1);
-    //sprite_set_vertical_flip(sid->sprite, 1);
     sid->move = 1;
-
-    /* if we are at the top end, just scroll the screen */
-    if ((sid->y >> 8) < sid->border) {
-        return 1;
-    } else {
-        /* else move up */
-        sid->y -= 256;
-        return 0;
+    sid->dir = DIR_N;
+    
+    // if there is room to walk, walk
+    if ( (sid->y - 1) > 0 ) {
+        sid->y -= 1;
     }
+    // if sid has reached the border, scroll the screen
+    if ( (sid->y < sid->border + 32) &&
+         (screen_y - 1) > 0 ) { 
+        //bg0_x_scroll = 
+        screen_y -= 1;
+        return 1;
+    }
+    return 0;
 }
 
 int sid_down(struct Sid* sid) {
-    /* face down */
-    sprite_set_horizontal_flip(sid->sprite, 1);
-    //sprite_set_vertical_flip(sid->sprite, 0);
+    /* face South */
+    sprite_set_horizontal_flip(sid->sprite, 0);
     sid->move = 1;
-
-    /* if we are at the bottom end, just scroll the screen */
-    if ((sid->y >> 8) > (SCREEN_HEIGHT - 16 - sid->border)) {
-        return 1;
-    } else {
-        /* else move down */
-        sid->y += 256;
-        return 0;
+    sid->dir = DIR_S;
+    
+    // if there is room to walk, walk
+    if ( (sid->y + 16 + 1) < SCREEN_HEIGHT ) {
+        sid->y += 1;
     }
+    // if sid has reached the border, scroll the screen
+    if ( (sid->y > (SCREEN_HEIGHT - 32) ) &&
+         (screen_y + SCREEN_HEIGHT + 1) < (32 << 3) ) {
+        //bg0_y_scroll = 
+        screen_y += 1;
+        return 1;
+    }
+    return 0;
 }
 
 /* stop the sid from walking left/right */
@@ -438,14 +476,6 @@ void sid_stop(struct Sid* sid) {
     sid->frame = 0;
     sid->counter = 7;
     sprite_set_offset(sid->sprite, sid->frame);
-}
-
-/* start the sid jumping, unless already fgalling */
-void sid_jump(struct Sid* sid) {
-    if (!sid->falling) {
-        sid->yvel = -1500;
-        sid->falling = 1;
-    }
 }
 
 /* finds which tile a screen coordinate maps to, taking scroll into account */
@@ -483,39 +513,17 @@ unsigned short tile_lookup(int x, int y, int xscroll, int yscroll,
 
 
 /* update the sid */
-void sid_update(struct Sid* sid, int xscroll) {
-    /* update y position and speed if falling */
-    if (sid->falling) {
-        sid->y += sid->yvel;
-        sid->yvel += sid->gravity;
-    }
-
-    /* check which tile the sid's feet are over */
-    unsigned short tile = tile_lookup((sid->x >> 8) + 8, (sid->y >> 8) + 8, xscroll,
-            0, map, map_width, map_height);
-
-    /* if it's block tile
-     * these numbers refer to the tile indices of the blocks the sid can walk on */
-    if ((tile >= 1 && tile <= 6) || 
-        (tile >= 12 && tile <= 17)) {
-        /* stop the fall! */
-        sid->falling = 0;
-        sid->yvel = 0;
-
-        /* make him line up with the top of a block
-         * works by clearing out the lower bits to 0 */
-        sid->y &= ~0x7ff;
-        //sid->x &= ~0x7ff;
-
-        /* move him down one because there is a one pixel gap in the image */
-        //sid->y++;
-
-    } else {
-        /* he is falling now */
-        sid->falling = 1;
-    }
-
-
+void sid_update(struct Sid* sid, int xscroll, int yscroll) {
+    /* check which tile the sid's head is bumping into */
+    unsigned short tile_N = tile_lookup( (sid->x + 8), (sid->y + 1), xscroll,
+            yscroll, map, map_width, map_height);
+    unsigned short tile_S = tile_lookup( (sid->x + 8), (sid->y + 16), xscroll,
+            yscroll, map, map_width, map_height);
+    unsigned short tile_E = tile_lookup( (sid->x + 15), (sid->y + 8), xscroll,
+            yscroll, map, map_width, map_height);
+    unsigned short tile_W = tile_lookup( (sid->x + 1), (sid->y + 8), xscroll,
+            yscroll, map, map_width, map_height);
+    
     /* update animation if moving */
     if (sid->move) {
         sid->counter++;
@@ -528,26 +536,45 @@ void sid_update(struct Sid* sid, int xscroll) {
             sid->counter = 0;
         }
     }
-
-    /* set on screen position */
-    sprite_position(sid->sprite, sid->x >> 8, sid->y >> 8);
+    
+    // Check if sid is walking into a wall from the North
+    if(tile_S == 0x0002 || tile_S == 0x0003 || tile_S == 0x0004) {
+        //TODO Use some bitwise voodo to keep sid from walking into the wall
+        sid->y -= 8;
+    }
+    // Check if sid is walking into a wall from the South
+    if(tile_N == 0x0022 || tile_N == 0x0023 || tile_N == 0x0024) {
+        sid->y += 8;
+    }
+    // Check if sid is walking into a wall from the East
+    if(tile_W == 0x0004 || tile_W == 0x0014 || tile_W == 0x0024) {
+        sid->x += 8;
+    }
+    // Check if sid is walking into a wall from the West
+    if(tile_E == 0x0002 || tile_E == 0x0012 || tile_E == 0x0022) {
+        sid->x -= 8;
+    }
+    
+    // Set on screen position
+    sprite_position(sid->sprite, sid->x, sid->y);
 }
 
 /* the main function */
 int main( ) {
-    /* we set the mode to mode 0 with bg0 on */
+    //TODO Re-enable BG1_ENABLE
+    // we set the mode to mode 0 with bg0 and bg1 on
     *display_control = MODE0 | BG0_ENABLE | SPRITE_ENABLE | SPRITE_MAP_1D;
 
-    /* setup the background 0 */
-    setup_background();
+    // setup backgrounds
+    setup_new_bg();
 
-    /* setup the sprite image data */
+    // setup the sprite image data
     setup_sprite_image();
 
-    /* clear all the sprites on screen now */
+    // clear all the sprites on screen now
     sprite_clear();
 
-    /* create the sid */
+    // create the sid
     struct Sid sid;
     sid_init(&sid);
 
@@ -558,7 +585,7 @@ int main( ) {
     /* loop forever */
     while (1) {
         /* update the sid */
-        sid_update(&sid, xscroll);
+        sid_update(&sid, xscroll, yscroll);
 
         /* now the arrow keys move the sid */
         if (button_pressed(BUTTON_RIGHT)) {
@@ -577,17 +604,16 @@ int main( ) {
             if (sid_down(&sid)) {
                 yscroll++;
             }
+        } else if (button_pressed(BUTTON_A)) {
+        
+        } else if (button_pressed(BUTTON_B)) {
+            //TODO Make Sid able to fight. B -> Punch
         } else {
             sid_stop(&sid);
         }
-        /* Make sure screen does not scroll if edge is showing */
-        /*if (sid->x >> 8 <) {
-            
-        }*/
 
         /* check for jumping */
         if (button_pressed(BUTTON_A)) {
-            sid_jump(&sid);
         }
 
         /* wait for vblank before scrolling and moving sprites */
