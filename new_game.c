@@ -15,7 +15,8 @@ unsigned char screen_y = 0;
 
 /* include the sprite image we are using */
 #include "include/sid.h"
-//#include "Sid_Front.h"
+#include "include/Sid_Front.h"
+#include "include/Sid_Right.h"
 
 /* include the tile cave we are using */
 #include "include/cave.h"
@@ -178,6 +179,21 @@ void setup_new_bg() {
 /* just kill time */
 void delay(unsigned int amount) {
     for (int i = 0; i < amount * 10; i++);
+}
+
+/* Room */
+struct Room {
+    unsigned char width;
+    unsigned char height;
+    unsigned char exit_x;
+    unsigned char exit_y;
+};
+
+struct Room* room_init(unsigned char x, unsigned char y) {
+    struct Room *newRoom = malloc(sizeof(struct Room));
+
+    newRoom->exit_x = x;
+    newRoom->exit_y = y;
 }
 
 /* a sprite is a moveable image on the screen */
@@ -555,7 +571,7 @@ void sid_update(struct Sid* sid, int xscroll, int yscroll) {
     if(tile_E == 0x0002 || tile_E == 0x0012 || tile_E == 0x0022) {
         sid->x -= 8;
     }
-    
+
     // Set on screen position
     sprite_position(sid->sprite, sid->x, sid->y);
 }
@@ -583,6 +599,12 @@ int main( ) {
     int xscroll = 0;
     int yscroll = 0;
 
+    struct Room* field = room_init(120, 8);
+    struct Room* cave = room_init(120, 156);
+    struct Room* room = room_init(120, 8);
+    
+    //room = field;
+
     /* loop forever */
     while (1) {
         /* update the sid */
@@ -606,7 +628,6 @@ int main( ) {
                 yscroll++;
             }
         } else if (button_pressed(BUTTON_A)) {
-            memcpy16_dma((unsigned short*) screen_block(24), (unsigned short*) cave, cave_width * cave_height);
         } else if (button_pressed(BUTTON_B)) {
             memcpy16_dma((unsigned short*) screen_block(24), (unsigned short*) map, map_width * map_height);
             //TODO Make Sid able to fight. B -> Punch
@@ -614,8 +635,9 @@ int main( ) {
             sid_stop(&sid);
         }
 
-        /* check for jumping */
-        if (button_pressed(BUTTON_A)) {
+        /* check for if sid is leaving room */
+        if (sid.x >= room->exit_x && sid.x < room->exit_x + 16 && sid.y == room->exit_y) {
+            memcpy16_dma((unsigned short*) screen_block(24), (unsigned short*) cave, cave_width * cave_height);
         }
 
         /* wait for vblank before scrolling and moving sprites */
