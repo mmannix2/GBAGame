@@ -49,10 +49,12 @@ volatile unsigned short* bg1_control = (volatile unsigned short*) 0x400000a;
 volatile unsigned long* display_control = (volatile unsigned long*) 0x4000000;
 
 /* the memory location which controls sprite attributes */
-volatile unsigned short* sprite_attribute_memory = (volatile unsigned short*) 0x7000000;
+volatile unsigned short* sprite_attribute_memory =
+    (volatile unsigned short*) 0x7000000;
 
 /* the memory location which stores sprite image data */
-volatile unsigned short* sprite_image_memory = (volatile unsigned short*) 0x6010000;
+volatile unsigned short* sprite_image_memory =
+    (volatile unsigned short*) 0x6010000;
 
 /* the address of the color palettes used for new_bgs and sprites */
 volatile unsigned short* bg_palette = (volatile unsigned short*) 0x5000000;
@@ -83,7 +85,8 @@ volatile short* bg0_y_scroll = (unsigned short*) 0x4000012;
 
 /* the scanline counter is a memory cell which is updated to indicate how
  * much of the screen has been drawn */
-volatile unsigned short* scanline_counter = (volatile unsigned short*) 0x4000006;
+volatile unsigned short* scanline_counter =
+    (volatile unsigned short*) 0x4000006;
 
 /* wait for the screen to be fully drawn so we can do something during vblank */
 void wait_vblank( ) {
@@ -143,7 +146,8 @@ void memcpy16_dma(unsigned short* dest, unsigned short* source, int amount) {
 void setup_new_bg() {
 
     /* load the palette from the image into palette memory*/
-    memcpy16_dma((unsigned short*) bg_palette, (unsigned short*) new_bg_palette, PALETTE_SIZE);
+    memcpy16_dma((unsigned short*) bg_palette,
+        (unsigned short*) new_bg_palette, PALETTE_SIZE);
 
     /* load the image into char block 0 */
     memcpy16_dma((unsigned short*) char_block(0), (unsigned short*) new_bg_data,
@@ -169,9 +173,11 @@ void setup_new_bg() {
         (0 << 14);        /* bg size, 0 is 256x256 */
 
     /* load the tile data into screen block 24 */
-    memcpy16_dma((unsigned short*) screen_block(24), (unsigned short*) cave, cave_width * cave_height);
+    memcpy16_dma((unsigned short*) screen_block(24),
+        (unsigned short*) cave, cave_width * cave_height);
     /* load the tile data into screen block 16 */
-    memcpy16_dma((unsigned short*) screen_block(16), (unsigned short*) hud, hud_width * hud_height);
+    memcpy16_dma((unsigned short*) screen_block(16),
+        (unsigned short*) hud, hud_width * hud_height);
 }
 
 /* just kill time */
@@ -276,7 +282,8 @@ struct Sprite* sprite_init(int x, int y, enum SpriteSize size,
 /* update all of the spries on the screen */
 void sprite_update_all() {
     /* copy them all over */
-    memcpy16_dma((unsigned short*) sprite_attribute_memory, (unsigned short*) sprites, NUM_SPRITES * 4);
+    memcpy16_dma((unsigned short*) sprite_attribute_memory,
+        (unsigned short*) sprites, NUM_SPRITES * 4);
 }
 
 /* setup all sprites */
@@ -295,13 +302,10 @@ void sprite_clear() {
 void sprite_position(struct Sprite* sprite, int x, int y) {
     /* clear out the y coordinate */
     sprite->attribute0 &= 0xff00;
-
     /* set the new y coordinate */
     sprite->attribute0 |= (y & 0xff);
-
     /* clear out the x coordinate */
     sprite->attribute1 &= 0xfe00;
-
     /* set the new x coordinate */
     sprite->attribute1 |= (x & 0x1ff);
 }
@@ -310,10 +314,8 @@ void sprite_position(struct Sprite* sprite, int x, int y) {
 void sprite_move(struct Sprite* sprite, int dx, int dy) {
     /* get the current y coordinate */
     int y = sprite->attribute0 & 0xff;
-
     /* get the current x coordinate */
     int x = sprite->attribute1 & 0x1ff;
-
     /* move to the new location */
     sprite_position(sprite, x + dx, y + dy);
 }
@@ -344,7 +346,6 @@ void sprite_set_horizontal_flip(struct Sprite* sprite, int horizontal_flip) {
 void sprite_set_offset(struct Sprite* sprite, int offset) {
     /* clear the old offset */
     sprite->attribute2 &= 0xfc00;
-
     /* apply the new one */
     sprite->attribute2 |= (offset & 0x03ff);
 }
@@ -352,39 +353,33 @@ void sprite_set_offset(struct Sprite* sprite, int offset) {
 /* setup the sprite image and palette */
 void setup_sprite_image() {
     /* load the palette from the image into palette memory*/
-    memcpy16_dma((unsigned short*) sprite_palette, (unsigned short*) sid_palette, PALETTE_SIZE);
-
+    memcpy16_dma((unsigned short*) sprite_palette,
+        (unsigned short*) sid_palette, PALETTE_SIZE);
     /* load the image into char block 0 */
-    memcpy16_dma((unsigned short*) sprite_image_memory, (unsigned short*) sid_S_data, (sid_width * sid_height) / 2);
+    memcpy16_dma((unsigned short*) sprite_image_memory,
+        (unsigned short*) sid_S_data, (sid_width * sid_height) / 2);
 }
 
 /* a struct for the sid's logic and behavior */
 struct Sid {
     /* the actual sprite attribute info */
     struct Sprite* sprite;
-
     /* the x and y postion, in 1/256 pixels */
     int x, y;
-    
     /* direction */
     char dir;
     #define DIR_N 0x00
     #define DIR_S 0x01
     #define DIR_E 0x10
     #define DIR_W 0x11
-    
     /* which frame of the animation he is on */
     int frame;
-
     /* the number of frames to wait before flipping */
     int animation_delay;
-
     /* the animation counter counts how many frames until we flip */
     int counter;
-
     /* whether the sid is moving right now or not */
     int move;
-
     /* the number of pixels away from the edge of the screen the sid stays */
     int border;
 };
@@ -409,7 +404,8 @@ void sid_init(struct Sid* sid) {
 int sid_left(struct Sid* sid) {
     /* face left */
     /* load the image into char block 0 */
-    memcpy16_dma((unsigned short*) sprite_image_memory, (unsigned short*) sid_E_data, (sid_width * sid_height) / 2);
+    memcpy16_dma((unsigned short*) sprite_image_memory,
+        (unsigned short*) sid_E_data, (sid_width * sid_height) / 2);
     sprite_set_horizontal_flip(sid->sprite, 1);
     sid->move = 1;
     sid->dir = DIR_W;
@@ -430,7 +426,8 @@ int sid_left(struct Sid* sid) {
 int sid_right(struct Sid* sid) {
     /* face right */
     /* load the image into char block 0 */
-    memcpy16_dma((unsigned short*) sprite_image_memory, (unsigned short*) sid_E_data, (sid_width * sid_height) / 2);
+    memcpy16_dma((unsigned short*) sprite_image_memory,
+        (unsigned short*) sid_E_data, (sid_width * sid_height) / 2);
     sprite_set_horizontal_flip(sid->sprite, 0);
     sid->move = 1;
     sid->dir = DIR_E;
@@ -452,7 +449,8 @@ int sid_right(struct Sid* sid) {
 int sid_up(struct Sid* sid) {
     /* face North */
     /* load the image into char block 0 */
-    memcpy16_dma((unsigned short*) sprite_image_memory, (unsigned short*) sid_S_data, (sid_width * sid_height) / 2);
+    memcpy16_dma((unsigned short*) sprite_image_memory,
+        (unsigned short*) sid_S_data, (sid_width * sid_height) / 2);
     sprite_set_horizontal_flip(sid->sprite, 1);
     sid->move = 1;
     sid->dir = DIR_N;
@@ -474,7 +472,8 @@ int sid_up(struct Sid* sid) {
 int sid_down(struct Sid* sid) {
     /* face South */
     /* load the image into char block 0 */
-    memcpy16_dma((unsigned short*) sprite_image_memory, (unsigned short*) sid_S_data, (sid_width * sid_height) / 2);
+    memcpy16_dma((unsigned short*) sprite_image_memory,
+        (unsigned short*) sid_S_data, (sid_width * sid_height) / 2);
     sprite_set_horizontal_flip(sid->sprite, 0);
     sid->move = 1;
     sid->dir = DIR_S;
@@ -504,15 +503,12 @@ void sid_stop(struct Sid* sid) {
 /* finds which tile a screen coordinate caves to, taking scroll into account */
 unsigned short tile_lookup(int x, int y, int xscroll, int yscroll,
         const unsigned short* tilecave, int tilecave_w, int tilecave_h) {
-
     /* adjust for the scroll */
     x += xscroll;
     y += yscroll;
-
     /* convert from screen coordinates to tile coordinates */
     x >>= 3;
     y >>= 3;
-
     /* account for wraparound */
     while (x >= tilecave_w) {
         x -= tilecave_w;
@@ -526,10 +522,8 @@ unsigned short tile_lookup(int x, int y, int xscroll, int yscroll,
     while (y < 0) {
         y += tilecave_h;
     }
-
     /* lookup this tile from the cave */
     int index = y * tilecave_w + x;
-
     /* return the tile */
     return tilecave[index];
 }
@@ -562,19 +556,39 @@ void sid_update(struct Sid* sid, int xscroll, int yscroll) {
     
     // Check if sid is walking into a wall from the North
     if(tile_S == 0x0002 || tile_S == 0x0003 || tile_S == 0x0004) {
+        /* load the image into char block 0 */
+        /*
+        memcpy16_dma((unsigned short*) sprite_image_memory,
+            (unsigned short*) sid_S_data, (sid_width * sid_height) / 2);
         //TODO Use some bitwise voodo to keep sid from walking into the wall
+        */
         sid->y -= 8;
     }
     // Check if sid is walking into a wall from the South
     if(tile_N == 0x0022 || tile_N == 0x0023 || tile_N == 0x0024) {
+        /* load the image into char block 0 */
+        /*
+        memcpy16_dma((unsigned short*) sprite_image_memory,
+            (unsigned short*) sid_S_data, (sid_width * sid_height) / 2);
+        */
         sid->y += 8;
     }
     // Check if sid is walking into a wall from the East
     if(tile_W == 0x0004 || tile_W == 0x0014 || tile_W == 0x0024) {
+        /* load the image into char block 0 */
+        /*
+        memcpy16_dma((unsigned short*) sprite_image_memory,
+            (unsigned short*) sid_S_data, (sid_width * sid_height) / 2);
+        */
         sid->x += 8;
     }
     // Check if sid is walking into a wall from the West
     if(tile_E == 0x0002 || tile_E == 0x0012 || tile_E == 0x0022) {
+        /* load the image into char block 0 */
+        /*
+        memcpy16_dma((unsigned short*) sprite_image_memory,
+            (unsigned short*) sid_S_data, (sid_width * sid_height) / 2);
+        */
         sid->x -= 8;
     }
 
@@ -635,15 +649,18 @@ int main( ) {
             }
         } else if (button_pressed(BUTTON_A)) {
         } else if (button_pressed(BUTTON_B)) {
-            memcpy16_dma((unsigned short*) screen_block(24), (unsigned short*) map, map_width * map_height);
+            memcpy16_dma((unsigned short*) screen_block(24),
+                (unsigned short*) map, map_width * map_height);
             //TODO Make Sid able to fight. B -> Punch
         } else {
             sid_stop(&sid);
         }
 
         /* check for if sid is leaving room */
-        if (sid.x >= room->exit_x && sid.x < room->exit_x + 16 && sid.y == room->exit_y) {
-            memcpy16_dma((unsigned short*) screen_block(24), (unsigned short*) cave, cave_width * cave_height);
+        if (sid.x >= room->exit_x && sid.x < room->exit_x + 16 &&
+            sid.y == room->exit_y) {
+            memcpy16_dma((unsigned short*) screen_block(24),
+                (unsigned short*) cave, cave_width * cave_height);
         }
 
         /* wait for vblank before scrolling and moving sprites */
