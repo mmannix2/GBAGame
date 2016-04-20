@@ -15,8 +15,6 @@ unsigned char screen_y = 0;
 
 /* include the sprite image we are using */
 #include "include/sid.h"
-#include "include/Sid_Front.h"
-#include "include/Sid_Right.h"
 
 /* include the tile cave we are using */
 #include "include/cave.h"
@@ -357,7 +355,7 @@ void setup_sprite_image() {
     memcpy16_dma((unsigned short*) sprite_palette, (unsigned short*) sid_palette, PALETTE_SIZE);
 
     /* load the image into char block 0 */
-    memcpy16_dma((unsigned short*) sprite_image_memory, (unsigned short*) sid_data, (sid_width * sid_height) / 2);
+    memcpy16_dma((unsigned short*) sprite_image_memory, (unsigned short*) sid_S_data, (sid_width * sid_height) / 2);
 }
 
 /* a struct for the sid's logic and behavior */
@@ -410,6 +408,8 @@ void sid_init(struct Sid* sid) {
 /* move the sid left or right returns if it is at edge of the screen */
 int sid_left(struct Sid* sid) {
     /* face left */
+    /* load the image into char block 0 */
+    memcpy16_dma((unsigned short*) sprite_image_memory, (unsigned short*) sid_E_data, (sid_width * sid_height) / 2);
     sprite_set_horizontal_flip(sid->sprite, 1);
     sid->move = 1;
     sid->dir = DIR_W;
@@ -429,6 +429,8 @@ int sid_left(struct Sid* sid) {
 }
 int sid_right(struct Sid* sid) {
     /* face right */
+    /* load the image into char block 0 */
+    memcpy16_dma((unsigned short*) sprite_image_memory, (unsigned short*) sid_E_data, (sid_width * sid_height) / 2);
     sprite_set_horizontal_flip(sid->sprite, 0);
     sid->move = 1;
     sid->dir = DIR_E;
@@ -449,6 +451,8 @@ int sid_right(struct Sid* sid) {
 /* move the sid up or down returns if it is at edge of the screen */
 int sid_up(struct Sid* sid) {
     /* face North */
+    /* load the image into char block 0 */
+    memcpy16_dma((unsigned short*) sprite_image_memory, (unsigned short*) sid_S_data, (sid_width * sid_height) / 2);
     sprite_set_horizontal_flip(sid->sprite, 1);
     sid->move = 1;
     sid->dir = DIR_N;
@@ -469,6 +473,8 @@ int sid_up(struct Sid* sid) {
 
 int sid_down(struct Sid* sid) {
     /* face South */
+    /* load the image into char block 0 */
+    memcpy16_dma((unsigned short*) sprite_image_memory, (unsigned short*) sid_S_data, (sid_width * sid_height) / 2);
     sprite_set_horizontal_flip(sid->sprite, 0);
     sid->move = 1;
     sid->dir = DIR_S;
