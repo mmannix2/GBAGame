@@ -15,6 +15,9 @@ unsigned char screen_y = 0;
 
 /* include the sprite image we are using */
 #include "include/sid.h"
+#include "include/sid_N.h"
+#include "include/sid_S.h"
+#include "include/sid_E.h"
 
 /* include the tile cave we are using */
 #include "include/cave.h"
@@ -450,7 +453,7 @@ int sid_up(struct Sid* sid) {
     /* face North */
     /* load the image into char block 0 */
     memcpy16_dma((unsigned short*) sprite_image_memory,
-        (unsigned short*) sid_S_data, (sid_width * sid_height) / 2);
+        (unsigned short*) sid_N_data, (sid_width * sid_height) / 2);
     sprite_set_horizontal_flip(sid->sprite, 1);
     sid->move = 1;
     sid->dir = DIR_N;
