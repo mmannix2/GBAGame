@@ -349,10 +349,10 @@ void sprite_set_offset(struct Sprite* sprite, int offset) {
 void setup_sprite_image() {
     /* load the palette from the image into palette memory*/
     memcpy16_dma((unsigned short*) sprite_palette,
-        (unsigned short*) sid_palette, PALETTE_SIZE);
+        (unsigned short*) sprites_palette, PALETTE_SIZE);
     /* load the image into char block 0 */
     memcpy16_dma((unsigned short*) sprite_image_memory,
-        (unsigned short*) sid_S_data, (sid_width * sid_height) / 2);
+        (unsigned short*) sprites_data, (sid_width * sid_height) / 2);
 
     /* load the palette from the image into palette memory*/
     /*
@@ -360,8 +360,10 @@ void setup_sprite_image() {
         (unsigned short*) boblin_S_palette, PALETTE_SIZE);
     */
     /* load the image into char block 0 */
+    /*
     memcpy16_dma((unsigned short*) sprite_image_memory,
         (unsigned short*) boblin_S_data, (boblin_S_width * boblin_S_height) / 2);
+    */
 }
 
 /* a struct for the sid's logic and behavior */
@@ -390,14 +392,13 @@ struct Boblin {
 
 /* initialize boblin */
 void boblin_init(struct Boblin* boblin) {
-    boblin->x = field_spawn_x << 3;
-    boblin->y = field_spawn_y << 3;
+    boblin->x = 80;
+    boblin->y = 40;
     boblin->dir = 0;
     boblin->border = 64;
-    boblin->frame = 0;
+    boblin->frame = 8;
     boblin->move = 0;
     boblin->counter = 0;
-    //boblin->falling = 0;
     boblin->animation_delay = 8;
     boblin->sprite = sprite_init(boblin->x, boblin->y, SIZE_16_16, 0, 0, boblin->frame, 0);
 }
@@ -591,6 +592,31 @@ Door* init_rooms() {
     return doors;
 }
 */
+/* update the boblin */
+void boblin_update(struct Boblin* boblin, char room_num, int xscroll, int yscroll) {
+    unsigned short tile_N, tile_S, tile_E, tile_W;
+    
+    boblin->move = 1;
+
+    /* update animation if moving */
+    if (boblin->move) {
+        boblin->counter++;
+        if (boblin->counter >= boblin->animation_delay) {
+            boblin->frame = boblin->frame + 8;
+            if (boblin->frame > 8) {
+                boblin->frame = 0;
+            }
+            sprite_set_offset(boblin->sprite, boblin->frame);
+            boblin->counter = 0;
+        }
+    }
+    
+    //boblin->x -=xscroll;
+    //boblin->y -=yscroll;
+
+    // Set on screen position
+    sprite_position(boblin->sprite, boblin->x, boblin->y);
+}
 
 /* update the sid */
 void sid_update(struct Sid* sid, char room_num, int xscroll, int yscroll) {
@@ -713,6 +739,10 @@ int main( ) {
     // create the sid
     struct Sid sid;
     sid_init(&sid);
+    
+    // create the boblin
+    struct Boblin boblin;
+    boblin_init(&boblin);
 
     /* set initial scroll to 0 */
     int xscroll = 0;
@@ -723,7 +753,7 @@ int main( ) {
     while (1) {
         /* update the sid */
         sid_update(&sid, current_room, xscroll, yscroll);
-
+        boblin_update(&boblin, current_room, xscroll, yscroll);
         /* now the arrow keys move the sid */
         if (button_pressed(BUTTON_RIGHT)) {
             if (sid_right(&sid)) {
