@@ -14,6 +14,8 @@ unsigned char screen_y = 0;
 #include "include/new_bg.h"
 
 /* include the sprite image we are using */
+#include "include/sprites.h" //Master Sprite sheet
+
 #include "include/sid.h"
 #include "include/sid_N.h"
 #include "include/sid_S.h"
@@ -577,6 +579,8 @@ struct Door {
 
 #define FIELD 0
 #define CAVE 1
+#define BOSS_ROOM 2
+
 /*
 // Return an array containing every door for each room
 Door* init_rooms() {
@@ -688,6 +692,8 @@ void switch_room(char room_number) {
     }
     current_room = room_number;
 }
+
+//Door field
 
 /* the main function */
 int main( ) {
