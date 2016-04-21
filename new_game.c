@@ -568,8 +568,25 @@ unsigned short tile_lookup(int x, int y, int xscroll, int yscroll,
     return tilemap[index];
 }
 
+struct Door {
+    unsigned char entry_x;
+    unsigned char entry_y;
+    unsigned char exit_x;
+    unsigned char exit_y;
+};
+
 #define FIELD 0
 #define CAVE 1
+/*
+// Return an array containing every door for each room
+Door* init_rooms() {
+    //Define the rooms
+    
+    Door* doors;
+
+    return doors;
+}
+*/
 
 /* update the sid */
 void sid_update(struct Sid* sid, char room_num, int xscroll, int yscroll) {
