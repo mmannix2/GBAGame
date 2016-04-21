@@ -19,10 +19,14 @@ unsigned char screen_y = 0;
 #include "include/sid_S.h"
 #include "include/sid_E.h"
 
-/* include the tile cave we are using */
+/* include the tile maps we are using */
+#include "include/field.h"
 #include "include/cave.h"
 #include "include/hud.h"
 #include "include/map.h"
+
+#define field_spawn_x 8
+#define field_spawn_y 10
 
 /* the tile mode flags needed for display control register */
 #define MODE0 0x00
@@ -177,7 +181,7 @@ void setup_new_bg() {
 
     /* load the tile data into screen block 24 */
     memcpy16_dma((unsigned short*) screen_block(24),
-        (unsigned short*) cave, cave_width * cave_height);
+        (unsigned short*) field, field_width * field_height);
     /* load the tile data into screen block 16 */
     memcpy16_dma((unsigned short*) screen_block(16),
         (unsigned short*) hud, hud_width * hud_height);
@@ -196,13 +200,14 @@ struct Room {
     unsigned char exit_y;
 };
 
+/*
 struct Room* room_init(unsigned char x, unsigned char y) {
     struct Room *newRoom = malloc(sizeof(struct Room));
 
     newRoom->exit_x = x;
     newRoom->exit_y = y;
 }
-
+*/
 /* a sprite is a moveable image on the screen */
 struct Sprite {
     unsigned short attribute0;
@@ -389,8 +394,8 @@ struct Sid {
 
 /* initialize sid */
 void sid_init(struct Sid* sid) {
-    sid->x = 120;
-    sid->y = 80;
+    sid->x = field_spawn_x << 3;
+    sid->y = field_spawn_y << 3;
     sid->dir = 0;
     sid->border = 64;
     sid->frame = 0;
@@ -563,8 +568,8 @@ void sid_update(struct Sid* sid, int xscroll, int yscroll) {
         /*
         memcpy16_dma((unsigned short*) sprite_image_memory,
             (unsigned short*) sid_S_data, (sid_width * sid_height) / 2);
-        //TODO Use some bitwise voodo to keep sid from walking into the wall
         */
+        //TODO Use some bitwise voodo to keep sid from walking into the wall
         sid->y -= 8;
     }
     // Check if sid is walking into a wall from the South
@@ -603,7 +608,7 @@ void sid_update(struct Sid* sid, int xscroll, int yscroll) {
 int main( ) {
     //TODO Re-enable BG1_ENABLE
     // we set the mode to mode 0 with bg0 and bg1 on
-    *display_control = MODE0 | BG0_ENABLE | SPRITE_ENABLE | SPRITE_MAP_1D;
+    *display_control = MODE0 | BG0_ENABLE | BG1_ENABLE | SPRITE_ENABLE | SPRITE_MAP_1D;
 
     // setup backgrounds
     setup_new_bg();
@@ -622,9 +627,13 @@ int main( ) {
     int xscroll = 0;
     int yscroll = 0;
 
+    /*
     struct Room* field = room_init(120, 8);
     struct Room* cave = room_init(120, 156);
-    struct Room* room = room_init(120, 8);
+    */
+    struct Room* room;
+    room->exit_x = 120;
+    room->exit_y = 8;
     
     //room = field;
 
@@ -651,10 +660,15 @@ int main( ) {
                 yscroll++;
             }
         } else if (button_pressed(BUTTON_A)) {
-        } else if (button_pressed(BUTTON_B)) {
+            //TODO Deploy Sid's shield. A -> Shield
             memcpy16_dma((unsigned short*) screen_block(24),
-                (unsigned short*) map, map_width * map_height);
+                (unsigned short*) cave, cave_width * cave_height);
+
+        } else if (button_pressed(BUTTON_B)) {
             //TODO Make Sid able to fight. B -> Punch
+            memcpy16_dma((unsigned short*) screen_block(24),
+                (unsigned short*) field, field_width * field_height);
+        
         } else {
             sid_stop(&sid);
         }
