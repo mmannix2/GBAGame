@@ -574,24 +574,18 @@ unsigned short tile_lookup(int x, int y, int xscroll, int yscroll,
 struct Door {
     unsigned char entry_x;
     unsigned char entry_y;
+    unsigned char entry_dir;
+    unsigned char entry_room;
     unsigned char exit_x;
     unsigned char exit_y;
+    unsigned char exit_dir;
+    unsigned char exit_room;
 };
 
 #define FIELD 0
 #define CAVE 1
 #define BOSS_ROOM 2
 
-/*
-// Return an array containing every door for each room
-Door* init_rooms() {
-    //Define the rooms
-    
-    Door* doors;
-
-    return doors;
-}
-*/
 /* update the boblin */
 void boblin_update(struct Boblin* boblin, char room_num, int xscroll, int yscroll) {
     unsigned short tile_N, tile_S, tile_E, tile_W;
@@ -719,8 +713,6 @@ void switch_room(char room_number) {
     current_room = room_number;
 }
 
-//Door field
-
 /* the main function */
 int main( ) {
     //TODO Re-enable BG1_ENABLE
@@ -747,8 +739,20 @@ int main( ) {
     /* set initial scroll to 0 */
     int xscroll = 0;
     int yscroll = 0;
-
     
+    /* Set up doors for rooms */
+    /*
+    const struct Door doors[2][] = {
+        { {19,0,DIR_N,FIELD,19,0,DIR_S,CAVE} },
+        { {19,0,DIR_N,CAVE,19,0,DIR_S,FIELD} }
+        //{ { } }
+    };
+    */
+    
+    struct Door field_door = {19<<3,0<<3,DIR_N,FIELD,19<<3,0<<3,DIR_S,CAVE}; 
+    struct Door cave_door_1 = {19<<3,0<<3,DIR_N,CAVE,19<<3,0<<3,DIR_S,FIELD}; 
+    //struct Door cave_door_2 = {19<<3,0<<3,DIR_N,FIELD,19<<3,0<<3,DIR_S,FIELD}; 
+
     /* loop forever */
     while (1) {
         /* update the sid */
@@ -782,12 +786,22 @@ int main( ) {
         }
 
         /* check for if sid is leaving room */
-        if (sid.x >= field_spawn_x && sid.x < field_spawn_x + 16 &&
-            sid.y == field_spawn_y) {
-            memcpy16_dma((unsigned short*) screen_block(24),
-                (unsigned short*) cave, cave_width * cave_height);
+        switch(current_room) {
+            case FIELD:
+            if (sid.x >= field_door.entry_x && sid.x < field_door.entry_x + 16 &&
+                sid.y <= field_door.entry_y + 8 && sid.dir == field_door.entry_dir) {
+                switch_room(CAVE);
+                sid.dir = field_door.exit_dir;
+            }
+            break;
+            case CAVE:
+            if (sid.x >= cave_door_1.entry_x && sid.x < cave_door_1.entry_x + 16 &&
+                sid.y <= cave_door_1.entry_y + 8 && sid.dir == cave_door_1.entry_dir) {
+                switch_room(FIELD);
+                sid.dir = cave_door_1.exit_dir;
+            }
+            break;
         }
-
         /* wait for vblank before scrolling and moving sprites */
         wait_vblank();
         *bg0_x_scroll = xscroll;
