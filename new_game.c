@@ -750,9 +750,16 @@ int main( ) {
     */
     
     struct Door field_door = {19<<3,0<<3,DIR_N,FIELD,19<<3,0<<3,DIR_S,CAVE}; 
-    struct Door cave_door_1 = {19<<3,0<<3,DIR_N,CAVE,19<<3,0<<3,DIR_S,FIELD}; 
-    //struct Door cave_door_2 = {19<<3,0<<3,DIR_N,FIELD,19<<3,0<<3,DIR_S,FIELD}; 
-
+    
+    char cave_door_count = 4;
+    struct Door cave_doors[] = {
+        {19<<3,0<<3,DIR_N,CAVE,19<<3,0<<3,DIR_S,FIELD}, 
+        {3<<3,240,DIR_S,CAVE,19<<3,0<<3,DIR_S,CAVE},
+        {11<<3,240,DIR_S,CAVE,19<<3,0<<3,DIR_S,FIELD}, 
+        {19<<3,240,DIR_S,CAVE,19<<3,0<<3,DIR_S,CAVE},
+        {27<<3,240,DIR_S,CAVE,19<<3,0<<3,DIR_S,CAVE}, 
+    };
+    
     /* loop forever */
     while (1) {
         /* update the sid */
@@ -795,10 +802,23 @@ int main( ) {
             }
             break;
             case CAVE:
+            /*
             if (sid.x >= cave_door_1.entry_x && sid.x < cave_door_1.entry_x + 16 &&
                 sid.y <= cave_door_1.entry_y + 8 && sid.dir == cave_door_1.entry_dir) {
                 switch_room(FIELD);
                 sid.dir = cave_door_1.exit_dir;
+            }
+            */
+            for(int door=0; door < cave_door_count; door++ ) {
+                if (sid.x >= cave_doors[door].entry_x &&
+                    sid.x < cave_doors[door].entry_x + 16 &&
+                    sid.y <= cave_doors[door].entry_y + 8 &&
+                    sid.dir == cave_doors[door].entry_dir) {
+                        switch_room(cave_doors[door].exit_room);
+                        sid.x = cave_doors[door].exit_x;
+                        sid.y = cave_doors[door].exit_y;
+                        sid.dir = cave_doors[door].exit_dir;
+                }
             }
             break;
         }
