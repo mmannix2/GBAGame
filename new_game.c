@@ -18,6 +18,7 @@ unsigned char screen_y = 0;
 #include "include/sid_N.h"
 #include "include/sid_S.h"
 #include "include/sid_E.h"
+#include "include/boblin_S.h"
 
 /* include the tile maps we are using */
 #include "include/field.h"
@@ -192,22 +193,6 @@ void delay(unsigned int amount) {
     for (int i = 0; i < amount * 10; i++);
 }
 
-/* Room */
-struct Room {
-    unsigned char width;
-    unsigned char height;
-    unsigned char exit_x;
-    unsigned char exit_y;
-};
-
-/*
-struct Room* room_init(unsigned char x, unsigned char y) {
-    struct Room *newRoom = malloc(sizeof(struct Room));
-
-    newRoom->exit_x = x;
-    newRoom->exit_y = y;
-}
-*/
 /* a sprite is a moveable image on the screen */
 struct Sprite {
     unsigned short attribute0;
@@ -366,6 +351,53 @@ void setup_sprite_image() {
     /* load the image into char block 0 */
     memcpy16_dma((unsigned short*) sprite_image_memory,
         (unsigned short*) sid_S_data, (sid_width * sid_height) / 2);
+
+    /* load the palette from the image into palette memory*/
+    /*
+    memcpy16_dma((unsigned short*) sprite_palette,
+        (unsigned short*) boblin_S_palette, PALETTE_SIZE);
+    */
+    /* load the image into char block 0 */
+    memcpy16_dma((unsigned short*) sprite_image_memory,
+        (unsigned short*) boblin_S_data, (boblin_S_width * boblin_S_height) / 2);
+}
+
+/* a struct for the sid's logic and behavior */
+struct Boblin {
+    /* the actual sprite attribute info */
+    struct Sprite* sprite;
+    /* the x and y postion, in 1/256 pixels */
+    int x, y;
+    /* direction */
+    char dir;
+    #define DIR_N 0x00
+    #define DIR_S 0x01
+    #define DIR_E 0x10
+    #define DIR_W 0x11
+    /* which frame of the animation he is on */
+    int frame;
+    /* the number of frames to wait before flipping */
+    int animation_delay;
+    /* the animation counter counts how many frames until we flip */
+    int counter;
+    /* whether the sid is moving right now or not */
+    int move;
+    /* the number of pixels away from the edge of the screen the sid stays */
+    int border;
+};
+
+/* initialize boblin */
+void boblin_init(struct Boblin* boblin) {
+    boblin->x = field_spawn_x << 3;
+    boblin->y = field_spawn_y << 3;
+    boblin->dir = 0;
+    boblin->border = 64;
+    boblin->frame = 0;
+    boblin->move = 0;
+    boblin->counter = 0;
+    //boblin->falling = 0;
+    boblin->animation_delay = 8;
+    boblin->sprite = sprite_init(boblin->x, boblin->y, SIZE_16_16, 0, 0, boblin->frame, 0);
 }
 
 /* a struct for the sid's logic and behavior */
@@ -394,8 +426,8 @@ struct Sid {
 
 /* initialize sid */
 void sid_init(struct Sid* sid) {
-    sid->x = field_spawn_x << 3;
-    sid->y = field_spawn_y << 3;
+    sid->x = 40;
+    sid->y = 40;
     sid->dir = 0;
     sid->border = 64;
     sid->frame = 0;
@@ -510,7 +542,7 @@ void sid_stop(struct Sid* sid) {
 
 /* finds which tile a screen coordinate caves to, taking scroll into account */
 unsigned short tile_lookup(int x, int y, int xscroll, int yscroll,
-        const unsigned short* tilecave, int tilecave_w, int tilecave_h) {
+        const unsigned short* tilemap, int tilemap_w, int tilemap_h) {
     /* adjust for the scroll */
     x += xscroll;
     y += yscroll;
@@ -518,37 +550,56 @@ unsigned short tile_lookup(int x, int y, int xscroll, int yscroll,
     x >>= 3;
     y >>= 3;
     /* account for wraparound */
-    while (x >= tilecave_w) {
-        x -= tilecave_w;
+    while (x >= tilemap_w) {
+        x -= tilemap_w;
     }
-    while (y >= tilecave_h) {
-        y -= tilecave_h;
+    while (y >= tilemap_h) {
+        y -= tilemap_h;
     }
     while (x < 0) {
-        x += tilecave_w;
+        x += tilemap_w;
     }
     while (y < 0) {
-        y += tilecave_h;
+        y += tilemap_h;
     }
-    /* lookup this tile from the cave */
-    int index = y * tilecave_w + x;
+    /* lookup this tile from the map */
+    int index = y * tilemap_w + x;
     /* return the tile */
-    return tilecave[index];
+    return tilemap[index];
 }
 
+#define FIELD 0
+#define CAVE 1
 
 /* update the sid */
-void sid_update(struct Sid* sid, int xscroll, int yscroll) {
-    /* check which tile the sid's head is bumping into */
-    unsigned short tile_N = tile_lookup( (sid->x + 8), (sid->y + 1), xscroll,
-            yscroll, cave, cave_width, cave_height);
-    unsigned short tile_S = tile_lookup( (sid->x + 8), (sid->y + 16), xscroll,
-            yscroll, cave, cave_width, cave_height);
-    unsigned short tile_E = tile_lookup( (sid->x + 15), (sid->y + 8), xscroll,
-            yscroll, cave, cave_width, cave_height);
-    unsigned short tile_W = tile_lookup( (sid->x + 1), (sid->y + 8), xscroll,
-            yscroll, cave, cave_width, cave_height);
-    
+void sid_update(struct Sid* sid, char room_num, int xscroll, int yscroll) {
+    unsigned short tile_N, tile_S, tile_E, tile_W;
+
+    switch(room_num) {
+        case FIELD:
+        /* check which tile the sid's head is bumping into */
+        tile_N = tile_lookup( (sid->x + 8), (sid->y + 1),
+            xscroll, yscroll, field, field_width, field_height);
+        tile_S = tile_lookup( (sid->x + 8), (sid->y + 16),
+            xscroll, yscroll, field, field_width, field_height);
+        tile_E = tile_lookup( (sid->x + 15), (sid->y + 8),
+            xscroll, yscroll, field, field_width, field_height);
+        tile_W = tile_lookup( (sid->x + 1), (sid->y + 8),
+            xscroll, yscroll, field, field_width, field_height);
+        break;
+        case CAVE:
+        /* check which tile the sid's head is bumping into */
+        tile_N = tile_lookup( (sid->x + 8), (sid->y + 1),
+            xscroll, yscroll, cave, cave_width, cave_height);
+        tile_S = tile_lookup( (sid->x + 8), (sid->y + 16),
+            xscroll, yscroll, cave, cave_width, cave_height);
+        tile_E = tile_lookup( (sid->x + 15), (sid->y + 8),
+            xscroll, yscroll, cave, cave_width, cave_height);
+        tile_W = tile_lookup( (sid->x + 1), (sid->y + 8),
+            xscroll, yscroll, cave, cave_width, cave_height);
+        break;
+    }
+
     /* update animation if moving */
     if (sid->move) {
         sid->counter++;
@@ -563,45 +614,62 @@ void sid_update(struct Sid* sid, int xscroll, int yscroll) {
     }
     
     // Check if sid is walking into a wall from the North
-    if(tile_S == 0x0002 || tile_S == 0x0003 || tile_S == 0x0004) {
+    if(tile_S >= 18) {
         /* load the image into char block 0 */
         /*
         memcpy16_dma((unsigned short*) sprite_image_memory,
             (unsigned short*) sid_S_data, (sid_width * sid_height) / 2);
         */
         //TODO Use some bitwise voodo to keep sid from walking into the wall
-        sid->y -= 8;
+        sid->y -= 1;
     }
     // Check if sid is walking into a wall from the South
-    if(tile_N == 0x0022 || tile_N == 0x0023 || tile_N == 0x0024) {
+    if(tile_N >= 18) {
         /* load the image into char block 0 */
         /*
         memcpy16_dma((unsigned short*) sprite_image_memory,
             (unsigned short*) sid_S_data, (sid_width * sid_height) / 2);
         */
-        sid->y += 8;
+        sid->y += 1;
     }
     // Check if sid is walking into a wall from the East
-    if(tile_W == 0x0004 || tile_W == 0x0014 || tile_W == 0x0024) {
+    if(tile_W >= 18) {
         /* load the image into char block 0 */
         /*
         memcpy16_dma((unsigned short*) sprite_image_memory,
             (unsigned short*) sid_S_data, (sid_width * sid_height) / 2);
         */
-        sid->x += 8;
+        sid->x += 1;
     }
     // Check if sid is walking into a wall from the West
-    if(tile_E == 0x0002 || tile_E == 0x0012 || tile_E == 0x0022) {
+    if(tile_E >= 18) {
         /* load the image into char block 0 */
         /*
         memcpy16_dma((unsigned short*) sprite_image_memory,
             (unsigned short*) sid_S_data, (sid_width * sid_height) / 2);
         */
-        sid->x -= 8;
+        sid->x -= 1;
     }
 
     // Set on screen position
     sprite_position(sid->sprite, sid->x, sid->y);
+}
+
+// Globally keep track of the current room
+char current_room = 0;
+
+void switch_room(char room_number) {
+    switch( room_number ) {
+        case FIELD:
+            memcpy16_dma((unsigned short*) screen_block(24),
+                (unsigned short*) field, field_width * field_height);
+        break;
+        case CAVE:
+            memcpy16_dma((unsigned short*) screen_block(24),
+                (unsigned short*) cave, cave_width * cave_height);
+        break;
+    }
+    current_room = room_number;
 }
 
 /* the main function */
@@ -627,20 +695,11 @@ int main( ) {
     int xscroll = 0;
     int yscroll = 0;
 
-    /*
-    struct Room* field = room_init(120, 8);
-    struct Room* cave = room_init(120, 156);
-    */
-    struct Room* room;
-    room->exit_x = 120;
-    room->exit_y = 8;
     
-    //room = field;
-
     /* loop forever */
     while (1) {
         /* update the sid */
-        sid_update(&sid, xscroll, yscroll);
+        sid_update(&sid, current_room, xscroll, yscroll);
 
         /* now the arrow keys move the sid */
         if (button_pressed(BUTTON_RIGHT)) {
@@ -661,21 +720,17 @@ int main( ) {
             }
         } else if (button_pressed(BUTTON_A)) {
             //TODO Deploy Sid's shield. A -> Shield
-            memcpy16_dma((unsigned short*) screen_block(24),
-                (unsigned short*) cave, cave_width * cave_height);
-
+            switch_room(FIELD);
         } else if (button_pressed(BUTTON_B)) {
             //TODO Make Sid able to fight. B -> Punch
-            memcpy16_dma((unsigned short*) screen_block(24),
-                (unsigned short*) field, field_width * field_height);
-        
+            switch_room(CAVE); 
         } else {
             sid_stop(&sid);
         }
 
         /* check for if sid is leaving room */
-        if (sid.x >= room->exit_x && sid.x < room->exit_x + 16 &&
-            sid.y == room->exit_y) {
+        if (sid.x >= field_spawn_x && sid.x < field_spawn_x + 16 &&
+            sid.y == field_spawn_y) {
             memcpy16_dma((unsigned short*) screen_block(24),
                 (unsigned short*) cave, cave_width * cave_height);
         }
